@@ -5,7 +5,7 @@ function b_final=gibbs_s(config,llr,y,G)
     newOrder=gibbsNewOrder(config,y,G,b_hat);
     for i = 1:config.Gibbs_iter %Gibbs译码循环
         for j = newOrder %按照newOrder的顺序依次更新k位比特，测试结果表明顺序调整对性能提升较大
-        %for j = 1:config.k %依次更新k位比特
+        %for j = 1:config.k %依次更新k位比特   仿真过程中收敛很快，几轮过后就不变了
            %更新噪声功率
            x_hat=pskmod(mod(b_hat*G,2), 2, InputType='bit');
            sigma2=norm(y-x_hat)^2/(2*config.n);

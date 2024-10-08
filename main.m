@@ -10,10 +10,12 @@ for snr_db=config.snr_dbs %在不同的信噪比上仿真
     i = 0;
     while true
         [b,c,G,pcmatrix] = encoder(config);
-        x = pskmod(cast(c,'int8'), 2,InputType='bit');% BPSK调制结果也要用复数表示 1->-1+0i 0->1+0i
-        [y,sigma2] = awgn(x, snr_db+10*log10(config.coderate)); %AWGN信道 应该需要把码率算进去？
+
+        x = pskmod(cast(c,'int8'), 2,InputType='bit'); % BPSK调制结果也要用复数表示 1->-1+0i 0->1+0i
+        [y,sigma2] = awgn(x, snr_db+10*log10(config.coderate)); % AWGN信道 应该需要把码率算进去？
         llr=pskdemod(y, 2, OutputType='approxllr', NoiseVariance=sigma2);
-        b_final=decoder(config,llr,y,sigma2,G,pcmatrix);
+
+        b_final=decoder(config, llr, y, sigma2, G, pcmatrix);
         % b_final=hard_decision(llr);
         % b_final=b_final(1:config.k);
             
@@ -81,7 +83,7 @@ ber(2).LineWidth=LineWidth;
 ber(2).Marker='o';
 ber(3).LineWidth=LineWidth;
 ber(3).Marker='*';
-ylim([1e-5,1]);  
+ylim([1e-4,1]);  
 xlabel('SNR(dB)');
 ylabel('BER');
 legend('BP','Gibbs','Gibbs\_s');

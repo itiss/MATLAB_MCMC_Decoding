@@ -10,10 +10,9 @@ for snr_db=config.snr_dbs %在不同的信噪比上仿真
     i = 0;
     while true
         [b,c,G,pcmatrix] = encoder(config);
-
-        x = pskmod(cast(c,'int8'), 2,InputType='bit'); % BPSK调制结果也要用复数表示 1->-1+0i 0->1+0i
+        x = pskmod(cast(c,'int8'), 2, InputType='bit'); % BPSK调制结果也要用复数表示 1->-1+0i 0->1+0i
         [y,sigma2] = awgn(x, snr_db+10*log10(config.coderate)); % AWGN信道 应该需要把码率算进去？
-        llr=pskdemod(y, 2, OutputType='approxllr', NoiseVariance=sigma2);
+        llr=pskdemod(y, 2, OutputType='approxllr');
 
         b_final=decoder(config, llr, y, sigma2, G, pcmatrix);
         % b_final=hard_decision(llr);
@@ -40,7 +39,7 @@ if config.saveAsFile
     save(matname,'BER');
 end
 
-% plot n=20 k=10
+%% plot n=20 k=10
 clc
 clear
 run("sys_config.m");
@@ -48,20 +47,28 @@ LineWidth=1.5;
 BER_BP=load('./results/ldpc/ber_BP_n=20_k=10.mat').BER;
 BER_Gibbs=load('./results/ldpc/ber_Gibbs_n=20_k=10.mat').BER;
 BER_Gibbs_s=load('./results/ldpc/ber_Gibbs_s_n=20_k=10.mat').BER;
+BER_Gibbs_l=load('./results/ldpc/ber_Gibbs_l_n=20_k=10.mat').BER;
+BER_hard=load('./results/ldpc/ber_hard_n=20_k=10.mat').BER;
 figure
 ber=semilogy(config.snr_dbs,BER_BP,...
              config.snr_dbs,BER_Gibbs,...
-             config.snr_dbs,BER_Gibbs_s);
+             config.snr_dbs,BER_Gibbs_s,...
+             config.snr_dbs,BER_Gibbs_l,...
+             config.snr_dbs,BER_hard);
 ber(1).LineWidth=LineWidth;
 ber(1).Marker='+';
 ber(2).LineWidth=LineWidth;
 ber(2).Marker='o';
 ber(3).LineWidth=LineWidth;
 ber(3).Marker='*';
+ber(4).LineWidth=LineWidth;
+ber(4).Marker='d';
+ber(5).LineWidth=LineWidth;
+ber(5).Marker='s';
 ylim([1e-5,1]);  
 xlabel('SNR(dB)');
 ylabel('BER');
-legend('BP','Gibbs','Gibbs\_s');
+legend('BP','Gibbs','Gibbs\_s','Gibbs\_l','hard');
 title('n=20 k=10');
 grid on
 
@@ -89,7 +96,6 @@ ylabel('BER');
 legend('BP','Gibbs','Gibbs\_s');
 title('n=32,k=16');
 grid on
-
 
 
 

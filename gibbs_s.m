@@ -1,4 +1,6 @@
-function b_final=gibbs_s(config,llr,y,G)
+function [b_final,sigma_list]=gibbs_s(config,llr,y,G,sigma2)
+    
+    sigma2_list=[];
     hard_bits=hard_decision(llr); 
     b_hat=hard_bits(1:config.k); %先利用硬判决初始化估计值
     y=y.'; b_hat=b_hat.';
@@ -8,8 +10,8 @@ function b_final=gibbs_s(config,llr,y,G)
         %for j = 1:config.k %依次更新k位比特   仿真过程中收敛很快，几轮过后就不变了
            %更新噪声功率
            x_hat=pskmod(mod(b_hat*G,2), 2, InputType='bit');
-           sigma2=norm(y-x_hat)^2/(2*config.n);
-           %disp([i,j,sigma2]);
+           sigma2=norm(y-x_hat)^2/(2*config.n);% 即便是信噪比为6 sigma2也只更新了一次
+           sigma2_list=[sigma2_list,sigma2];
            %计算L
            b_hat0=b_hat;b_hat0(j)=0;
            b_hat1=b_hat;b_hat1(j)=1;
@@ -17,12 +19,25 @@ function b_final=gibbs_s(config,llr,y,G)
            x_hat1=pskmod(mod(b_hat1*G,2), 2, InputType='bit');
            L=(norm(y-x_hat0)^2-norm(y-x_hat1)^2)/(2*sigma2);
            %概率
-           P=1/(1+exp(-L));
+           P=1/(1+exp(-L));%p(x=1)
            %依概率更新
-           u=rand;
+           u=rand
            if u<P %第j位取1
+               % if b_hat(j)==1
+               %     disp('unchange')
+               % else
+               %     disp('change')
+               % end
+
                b_hat(j)=1;
+               
            else %第j位取0
+               %   if b_hat(j)==0
+               %     disp('unchange')
+               % else
+               %     disp('change')
+               %   end
+
                b_hat(j)=0;
            end      
         end
@@ -33,10 +48,10 @@ function b_final=gibbs_s(config,llr,y,G)
 % return newOrder 新的更新顺序，将1到k的序号按新顺序排列
 function newOrder = gibbsNewOrder(config,y,G,b_hat)
     norms=zeros(1,config.k);
-    x_hat=pskmod(mod(b_hat*G,2), 2, InputType='bit');
-    for i = 1:config.k
-        x_hat_flip=x_hat;
-        x_hat_flip(i)=-x_hat(i);%分别翻转1到k位的比特
+    for i = 1:config.k    
+        b_hat_flip=b_hat;
+        b_hat_flip(i)=1-b_hat(i);%分别翻转1到k位的比特
+        x_hat_flip=pskmod(mod(b_hat_flip*G,2), 2, InputType='bit');
         norms(i)=norm(y-x_hat_flip)^2;
     end
     [~,newOrder]=sort(norms);%升序排列

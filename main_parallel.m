@@ -1,29 +1,34 @@
-%% 主程序
+%% 主程序 并行版本，多个batch用矩阵乘法的形式并行跑
 clc
 clear
 
 run('sys_config.m');
-ber=comm.ErrorRate;
-BER=[];
+BER=[];%记录所有snr下的误码率
 rng(1); %set the seed
-for snr_db=config.snr_dbs %在不同的信噪比上仿真
+parfor snr_db=config.snr_dbs %在不同的信噪比上仿真
     i = 0;
+    err_bits=0;
+    total_bits=0;
     while true
-        [b,c,G,pcmatrix] = encoder(config);
+        [b,c,G,pcmatrix] = encoder_parallel(config);
         x = pskmod(cast(c,'int8'), 2, InputType='bit'); % BPSK调制结果也要用复数表示 1->-1+0i 0->1+0i
         [y,sigma2] = awgn(x, snr_db+10*log10(config.coderate)); % AWGN信道 应该需要把码率算进去？
         llr=pskdemod(y, 2, OutputType='approxllr');
 
-        b_final=decoder(config, llr, y, sigma2, G, pcmatrix);
-        % b_final=hard_decision(llr);
-        % b_final=b_final(1:config.k);
-            
-        errstate=ber(b,b_final); % ber, err bits, total_bits
+        b_final=decoder_parallel(config, llr, y, sigma2, G, pcmatrix);
+        b_final=b_final.';
+        % 误码性能评估 begin 
+        diff=b~=b_final;
+        err_bits=err_bits+sum(diff(:));
+        total_bits=total_bits+config.k*config.batch;
+        ber=err_bits/total_bits;
+        % 误码性能评估 end
+
         i=i+1;
-        fprintf('\rsnr:%f iter:%d err:%d total:%d',snr_db,i,errstate(2),errstate(3));
-        if errstate(2)>config.target_err_bits || errstate(3)>config.max_iter
-            BER=[BER,errstate(1)];
-            reset(ber);
+        fprintf('\rsnr:%f iter:%d err:%d total:%d ber:%.2e',snr_db,i,err_bits,total_bits,ber);
+        
+        if err_bits>config.target_err_bits || i>config.max_iter
+            BER=[BER,ber];
             break;
         end
     end
@@ -55,7 +60,7 @@ clear
 run("sys_config.m");
 Gibbs_iter=config.Gibbs_iter;
 LineWidth=1.5;
-BER_BP=load('./results/ldpc/ber_BP_n=20_k=10.mat').BER;
+BER_BP=load('./results/ldpc/ber_BP_n=20_k=10_iter=10.mat').BER;
 BER_Gibbs=load('./results/ldpc/ber_Gibbs_n=20_k=10.mat').BER;
 
 mat_name=sprintf('./results/ldpc/ber_Gibbs_s_n=20_k=10_iter=%d.mat',Gibbs_iter);
@@ -111,41 +116,30 @@ legend('BP','Gibbs','Gibbs\_s');
 title('n=32,k=16');
 grid on
 
-%% 
-clc 
-clear
-b33=0.864;b32=-1.44;b31=-0.6;
-k3=-b33
-b21=(b31+k3*b32)/(1-k3^2)
-b22=(b32+k3*b31)/(1-k3^2)
-k2=-b22
-b11=(b21+k2*b21)/(1-k2^2)
-k1=-b11
-
-b=[1,-0.6,-1.44,0.864];
-k=-tf2latc(b).'
-%% 
-clc 
-clear
-b33=-0.898;b32=0.9;b31=-0.98;
-k3=-b33
-b21=(b31+k3*b32)/(1-k3^2)
-b22=(b32+k3*b31)/(1-k3^2)
-k2=-b22
-b11=(b21+k2*b21)/(1-k2^2)
-k1=-b11
-
-b=[1,-0.98,0.9,-0.898];
-k=-tf2latc(b).'
-%%
+%% norm测试
 clc
 clear
-b=[1,-0.6,-1.44,0.864];
-a=[1,-0.98,0.9,-0.898];
-[k,c]=tf2latc(b,a);
-k=-k.'
-c=c.'
+% 示例矩阵A
+A = [
+    1, 2, 3, 4;
+    5, 6, 7, 8;
+    9, 10, 11, 12
+];
 
+% 每一行要置为0的列索引
+indices = [2, 4];  % 第1行第2列置为0，第2行第3列置为0，第3行第4列置为0
+
+% 获取每一行的索引
+rows = [1,2];  % 获取每一行的行号（列向量）
+
+% 直接将指定位置的元素置为0
+A(sub2ind(size(A), rows, indices)) = 0;
+% 输出结果
+disp(A);
+
+%%
+a=[1,2,3];
+ones(3)/(1+a)
 
 
 

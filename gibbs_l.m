@@ -32,7 +32,8 @@ function [b_final]=gibbs_l(config,y,G)
             path(L+p,:)=path(p,:);
             path(L+p,i)=1-path(p,i);%翻转第i位比特，拓展路径
         end  
-        % 对路径计算度量值并排序
+        % 对路径计算度量值并排序 
+        % 这里的循环数肯定不是num_path 后面再改
         for j=1: 2* num_path
             b_hat=path(j,:);
             x_hat=pskmod(mod(b_hat*G,2), 2, InputType='bit');

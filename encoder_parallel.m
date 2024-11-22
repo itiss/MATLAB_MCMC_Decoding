@@ -1,4 +1,5 @@
-function [infoBits,c,G,pcmatrix] = encoder(config)
+%并行生成编码比特 10比特为1个batch，此处一次性生成多个batch
+function [infoBits,c,G,pcmatrix] = encoder_parallel(config)
     if config.encoding_type=="ldpc"
         if config.n==20 && config.coderate==0.5
             blockSize=5;
@@ -12,6 +13,7 @@ function [infoBits,c,G,pcmatrix] = encoder(config)
         checkmatrix=cast(full(pcmatrix),'double'); %将sparse logical转为矩阵
         G=parity2gen(checkmatrix); % 获取生成矩阵
         cfgLDPCEnc = ldpcEncoderConfig(pcmatrix);
-        infoBits = rand(cfgLDPCEnc.NumInformationBits,1) < 0.5;
+
+        infoBits = rand(cfgLDPCEnc.NumInformationBits,config.batch) < 0.5;
         c = ldpcEncode(infoBits, cfgLDPCEnc);%LDPC编码
     end

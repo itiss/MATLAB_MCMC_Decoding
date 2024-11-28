@@ -1,7 +1,8 @@
-%% 主程序 并行版本，多个batch用矩阵乘法的形式并行跑
+%% 主程序 multichannel+并行采样
 clc
 clear
 
+tic
 run('sys_config.m');
 BER=[];%记录所有snr下的误码率
 rng(1); %set the seed
@@ -16,9 +17,8 @@ parfor snr_db=config.snr_dbs %在不同的信噪比上仿真
         llr=pskdemod(y, 2, OutputType='approxllr');
 
         b_final=decoder_parallel(config, llr, y, sigma2, G, pcmatrix);
-        b_final=b_final.';
         % 误码性能评估 begin 
-        diff=b~=b_final;
+        diff=(b~=b_final);
         err_bits=err_bits+sum(diff(:));
         total_bits=total_bits+config.k*config.batch;
         ber=err_bits/total_bits;
@@ -37,12 +37,14 @@ end
 % save the result
 if config.saveAsFile
     if config.decoding_type=="Gibbs" || config.decoding_type=="Gibbs_s"
-    matname=sprintf('./results/%s/ber_%s_n=%d_k=%d_iter=%d.mat',...
+    matname=sprintf('./results/%s/ber_%s_n=%d_k=%d_iter=%d_np=%d_hardinit=%d.mat',...
                     config.encoding_type,...
                     config.decoding_type,...
                     config.n,...
                     config.k, ...
-                    config.Gibbs_iter);
+                    config.Gibbs_iter, ...
+                    config.np,...
+                    config.hard_init);
     else
     matname=sprintf('./results/%s/ber_%s_n=%d_k=%d_iter=%d.mat',...
                     config.encoding_type,...
@@ -53,7 +55,8 @@ if config.saveAsFile
     end
     save(matname,'BER');
 end
-
+time_end=toc;
+disp(['time consumed: ', num2str(time_end/60), 'min']);
 %% plot n=20 k=10
 clc
 clear
@@ -66,11 +69,16 @@ BER_Gibbs=load('./results/ldpc/ber_Gibbs_n=20_k=10.mat').BER;
 mat_name=sprintf('./results/ldpc/ber_Gibbs_s_n=20_k=10_iter=%d.mat',Gibbs_iter);
 BER_Gibbs_s=load(mat_name).BER;
 
+mat_name=sprintf('./results/ldpc/ber_Gibbs_s_n=20_k=10_iter=%d_np=%d_hardinit=%d.mat', ...
+    Gibbs_iter,config.np,config.hard_init);
+BER_Gibbs_s_np=load(mat_name).BER;
+
 BER_hard=load('./results/ldpc/ber_hard_n=20_k=10.mat').BER;
-figure
+figure('Position', [100, 100, 500, 400]); 
 ber=semilogy(config.snr_dbs,BER_BP,...
              config.snr_dbs,BER_Gibbs,...
              config.snr_dbs,BER_Gibbs_s,...
+             config.snr_dbs,BER_Gibbs_s_np,...
              config.snr_dbs,BER_hard);
 ber(1).LineWidth=LineWidth;
 ber(1).Marker='+';
@@ -82,14 +90,21 @@ ber(3).Color='red';
 ber(3).Marker='^';
 ber(4).LineWidth=LineWidth;
 ber(4).Marker='d';
+ber(5).LineWidth=LineWidth;
+ber(5).Marker='<';
 ylim([1e-5,1]);  
 xlabel('SNR(dB)');
 ylabel('BER');
-legend('BP','Gibbs','Gibbs\_s','hard');
+legend('BP', ...
+    'Gibbs', ...
+    'Gibbs\_s', ...
+    sprintf('Gibbs-s np=%d  hardinit=%d',config.np,config.hard_init), ...
+    'hard', ...
+    Location='southwest');
 title(sprintf('n=20 k=10 Gibbs iter=%d',Gibbs_iter));
 grid on
 
-pic_name=sprintf('./pic/ber_Gibbs_iter=%d.png',Gibbs_iter);
+pic_name=sprintf('./pic/ber_Gibbs_iter=%d np=%d hard_init=%d.png',Gibbs_iter,config.np,config.hard_init);
 exportgraphics(gca,pic_name);
 %% plot n=32 k=16
 clc
